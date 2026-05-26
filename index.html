@@ -1036,7 +1036,8 @@
     api('getSettings')
       .then(function(settings) {
         settings = settings || {};
-        setValue('settingOriginalAmount', settings.originalAmount || 0);
+
+        setValue('settingOriginalAmount', settings.initialAmount || settings.originalAmount || 0);
         setValue('setCoin1', settings.coin1 || 0);
         setValue('setCoin5', settings.coin5 || 0);
         setValue('setCoin10', settings.coin10 || 0);
@@ -1045,6 +1046,7 @@
         setValue('setBill200', settings.bill200 || 0);
         setValue('setBill500', settings.bill500 || 0);
         setValue('setBill1000', settings.bill1000 || 0);
+
         if (btn) {
           btn.disabled = false;
           btn.textContent = '儲存原始設定';
@@ -1066,8 +1068,8 @@
       btn.textContent = '儲存中...';
     }
 
-    api('updateSettings', {
-      originalAmount: getNumberValue('settingOriginalAmount'),
+    api('saveSettings', {
+      initialAmount: getNumberValue('settingOriginalAmount'),
       coin1: getNumberValue('setCoin1'),
       coin5: getNumberValue('setCoin5'),
       coin10: getNumberValue('setCoin10'),
@@ -1077,12 +1079,19 @@
       bill500: getNumberValue('setBill500'),
       bill1000: getNumberValue('setBill1000')
     })
-      .then(function() {
+      .then(function(result) {
         if (btn) {
           btn.disabled = false;
           btn.textContent = '儲存原始設定';
         }
-        showToast('原始設定已儲存');
+
+        showToast('原始設定已儲存，餘額 ' + money(result.newBalance || result.balance || 0));
+
+        loadHome();
+
+        setTimeout(function() {
+          switchPage('home');
+        }, 700);
       })
       .catch(function(err) {
         if (btn) {
