@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#172554" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="零用金" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <title>零用金管理</title>
+
+  <style>
+    :root {
+      --vh: 1vh;
+      --safe-top: env(safe-area-inset-top);
+      --safe-bottom: env(safe-area-inset-bottom);
+      --bg: #eef2f7;
+      --card: #fff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --blue: #2563eb;
+      --blue-dark: #172554;
+      --green: #16a34a;
+      --red: #dc2626;
+      --line: #e2e8f0;
+      --tab-h: 84px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+      font-size: 20px;
+      line-height: 1.35;
+    }
+
+    button, input, select, textarea { font: inherit; }
+
+    #app {
+      position: fixed;
+      inset: 0;
+      height: calc(var(--vh) * 100);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(96,165,250,.18), transparent 34%),
+        linear-gradient(180deg, #f8fbff, #eef2f7 45%, #e9eef5);
+      overflow: hidden;
+    }
+
+    .top-bar {
+      min-height: 46px;
+      padding: 8px 14px;
+      padding-top: calc(8px + var(--safe-top));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      background: linear-gradient(135deg, #172554, #2563eb);
+      font-size: 19px;
+      font-weight: 1000;
+      box-shadow: 0 4px 18px rgba(23,37,84,.18);
+    }
+
+    .content {
+      min-height: 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 12px 12px 18px;
+    }
+
+    .page { display: none; }
+    .page.active { display: block; animation: pageIn .16s ease-out; }
+
+    @keyframes pageIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero-card {
+      position: relative;
+      overflow: hidden;
+      border-radius: 28px;
+      padding: 24px 20px 20px;
+      margin-bottom: 14px;
+      color: #fff;
+      background:
+        radial-gradient(circle at 88% 18%, rgba(255,255,255,.34), transparent 18%),
+        radial-gradient(circle at 12% 88%, rgba(45,212,191,.22), transparent 24%),
+        linear-gradient(135deg, #172554 0%, #1d4ed8 48%, #60a5fa 100%);
+      box-shadow: 0 18px 42px rgba(30,41,59,.13);
+      border: 1px solid rgba(255,255,255,.18);
+    }
+
+    .hero-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(120deg, rgba(255,255,255,.16), transparent 32%),
+        repeating-linear-gradient(135deg, rgba(255,255,255,.055) 0, rgba(255,255,255,.055) 1px, transparent 1px, transparent 10px);
+      pointer-events: none;
+    }
+
+    .hero-top, .hero-footer, .hero-meta-line, .balance-amount {
+      position: relative;
+      z-index: 1;
+    }
+
+    .hero-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .hero-label { font-size: 24px; font-weight: 1000; }
+    .hero-date {
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.18);
+      font-size: 16px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .balance-amount {
+      font-size: clamp(74px, 19vw, 96px);
+      line-height: .96;
+      font-weight: 1000;
+      letter-spacing: -2.6px;
+      margin: 6px 0 18px;
+      text-shadow: 0 6px 18px rgba(15,23,42,.18);
+    }
+
+    .hero-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 42px;
+      padding: 10px 15px;
+      border-radius: 999px;
+      font-size: 20px;
+      font-weight: 1000;
+    }
+    .badge-ok { background: rgba(236,253,245,.22); border: 1px solid rgba(187,247,208,.24); }
+    .badge-warn { background: #fff7ed; color: #92400e; border: 1px solid rgba(251,191,36,.24); }
+
+    .mini-update { color: rgba(255,255,255,.78); font-size: 16px; font-weight: 900; }
+
+    .hero-meta-line {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 15px;
+      font-weight: 850;
+      color: rgba(255,255,255,.8);
+    }
+
+    .meta-pill {
+      min-height: 34px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.13);
+      border: 1px solid rgba(255,255,255,.12);
+    }
+
+    .action-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .action-card {
+      min-height: 96px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      grid-template-rows: auto auto;
+      align-items: center;
+      column-gap: 14px;
+      border: none;
+      border-radius: 24px;
+      padding: 18px 16px;
+      color: #fff;
+      text-align: left;
+      cursor: pointer;
+      box-shadow: 0 8px 22px rgba(30,41,59,.08);
+    }
+
+    .action-card.primary { background: linear-gradient(135deg, #1e3a8a, #2563eb); }
+    .action-card.success { background: linear-gradient(135deg, #166534, #22c55e); }
+
+    .action-icon {
+      grid-row: 1 / span 2;
+      display: grid;
+      place-items: center;
+      width: 52px;
+      height: 52px;
+      border-radius: 16px;
+      background: rgba(255,255,255,.18);
+      font-size: 32px;
+    }
+
+    .action-title { font-size: 25px; line-height: 1.12; font-weight: 1000; }
+    .action-sub { margin-top: 4px; font-size: 16px; font-weight: 850; color: rgba(255,255,255,.8); }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 9px;
+      margin-bottom: 14px;
+    }
+
+    .summary-card {
+      border-radius: 20px;
+      padding: 14px 8px;
+      text-align: center;
+      background: rgba(255,255,255,.9);
+      border: 1px solid rgba(226,232,240,.82);
+      box-shadow: 0 6px 16px rgba(15,23,42,.055);
+    }
+
+    .summary-card:nth-child(1) { background: linear-gradient(180deg, #fff7f7, rgba(255,255,255,.92)); }
+    .summary-card:nth-child(2) { background: linear-gradient(180deg, #f0fdf4, rgba(255,255,255,.92)); }
+    .summary-card:nth-child(3) { background: linear-gradient(180deg, #eff6ff, rgba(255,255,255,.92)); }
+
+    .summary-label { color: var(--muted); font-size: 15px; font-weight: 900; margin-bottom: 6px; }
+    .summary-value { font-size: 22px; font-weight: 1000; }
+    .red { color: var(--red); }
+    .green { color: var(--green); }
+    .blue { color: var(--blue); }
+
+    .card {
+      border-radius: 24px;
+      padding: 17px 16px 10px;
+      background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,250,252,.92));
+      border: 1px solid rgba(226,232,240,.78);
+      box-shadow: 0 8px 22px rgba(30,41,59,.08);
+      margin-bottom: 14px;
+    }
+
+    .section-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .section-label {
+      color: #1e293b;
+      font-size: 22px;
+      font-weight: 1000;
+    }
+
+    .section-label::before {
+      content: "";
+      display: inline-block;
+      width: 6px;
+      height: 22px;
+      margin-right: 8px;
+      border-radius: 999px;
+      vertical-align: -4px;
+      background: linear-gradient(180deg, var(--blue), #2dd4bf);
+    }
+
+    .section-hint {
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 850;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: rgba(241,245,249,.82);
+      border: 1px solid rgba(226,232,240,.82);
+    }
+
+    .empty-state {
+      display: grid;
+      place-items: center;
+      min-height: 148px;
+      border-radius: 22px;
+      border: 1px dashed rgba(148,163,184,.35);
+      background: linear-gradient(180deg, rgba(248,250,252,.72), rgba(255,255,255,.46));
+      color: #94a3b8;
+      text-align: center;
+      font-size: 24px;
+      font-weight: 1000;
+    }
+
+    .empty-state small {
+      display: block;
+      margin-top: 10px;
+      color: #a8b3c4;
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .record-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 14px;
+      padding: 17px 4px;
+      border-bottom: 1px solid rgba(226,232,240,.72);
+      border-radius: 14px;
+    }
+    .record-item:last-child { border-bottom: none; }
+
+    .record-type { font-size: 23px; font-weight: 1000; line-height: 1.25; }
+    .record-note { margin-top: 6px; color: var(--muted); font-size: 18px; font-weight: 800; }
+
+    .record-amount-out, .record-amount-in {
+      min-width: 112px;
+      padding: 9px 10px;
+      border-radius: 999px;
+      text-align: right;
+      font-size: 24px;
+      font-weight: 1000;
+      white-space: nowrap;
+    }
+    .record-amount-out { color: var(--red); background: #fff1f2; }
+    .record-amount-in { color: var(--green); background: #ecfdf5; }
+
+    .form-card, .money-section { padding: 18px; }
+    .form-group { margin-bottom: 20px; }
+    .form-group label, .coin-cell label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #334155;
+      font-size: 21px;
+      font-weight: 950;
+      margin-bottom: 10px;
+    }
+
+    .field-hint { color: #94a3b8; font-size: 15px; font-weight: 850; }
+
+    input, select, textarea {
+      width: 100%;
+      min-height: 76px;
+      padding: 18px;
+      border-radius: 20px;
+      border: 1.5px solid rgba(203,213,225,.92);
+      background: linear-gradient(180deg, #fff, #fbfdff);
+      color: var(--text);
+      font-size: 26px;
+      font-weight: 900;
+      appearance: none;
+      -webkit-appearance: none;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.72), 0 2px 8px rgba(15,23,42,.035);
+    }
+
+    textarea { min-height: 118px; resize: none; }
+
+    input:focus, select:focus, textarea:focus {
+      outline: 4px solid rgba(37,99,235,.13);
+      border-color: #3b82f6;
+    }
+
+    .select-wrap { position: relative; }
+    .select-wrap::after {
+      content: "⌄";
+      position: absolute;
+      right: 18px;
+      top: 50%;
+      transform: translateY(-56%);
+      color: #64748b;
+      font-size: 30px;
+      font-weight: 1000;
+      pointer-events: none;
+    }
+    .select-wrap select { padding-right: 52px; }
+
+    .btn {
+      width: 100%;
+      min-height: 78px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      border-radius: 22px;
+      color: #fff;
+      font-size: 27px;
+      font-weight: 1000;
+      box-shadow: 0 10px 22px rgba(37,99,235,.15), inset 0 1px 0 rgba(255,255,255,.72);
+      cursor: pointer;
+    }
+    .btn-primary { background: linear-gradient(135deg, #1e3a8a, #2563eb); }
+    .btn-success { background: linear-gradient(135deg, #166534, #22c55e); }
+    .btn:disabled { background: #e2e8f0; color: #94a3b8; box-shadow: none; }
+
+    .coin-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .coin-cell label {
+      justify-content: center;
+      color: #475569;
+      font-size: 19px;
+    }
+
+    .coin-cell input {
+      min-height: 78px;
+      text-align: center;
+      font-size: 31px;
+      border-radius: 22px;
+    }
+
+    .count-summary {
+      position: sticky;
+      bottom: 10px;
+      z-index: 8;
+      margin: 16px 0;
+      padding: 18px;
+      border-radius: 24px;
+      background: rgba(255,255,255,.96);
+      border: 1px solid rgba(148,163,184,.28);
+      box-shadow: 0 -6px 26px rgba(15,23,42,.10);
+      backdrop-filter: blur(16px);
+    }
+
+    .count-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+    }
+    .count-row.total {
+      border-top: 1px dashed rgba(148,163,184,.45);
+      margin-top: 8px;
+      padding-top: 14px;
+    }
+    .count-row-label { color: #475569; font-size: 21px; font-weight: 900; }
+    .count-row-value { font-size: 29px; font-weight: 1000; text-align: right; white-space: nowrap; }
+    .diff-surplus { color: var(--blue); }
+    .diff-short { color: var(--red); }
+    .diff-ok { color: var(--green); }
+
+    .tab-bar {
+      min-height: calc(var(--tab-h) + var(--safe-bottom));
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      padding: 0 8px;
+      padding-bottom: var(--safe-bottom);
+      background: rgba(255,255,255,.96);
+      border-top: 1px solid rgba(203,213,225,.72);
+      box-shadow: 0 -10px 26px rgba(15,23,42,.09);
+      backdrop-filter: blur(18px);
+    }
+
+    .tab-btn {
+      min-height: var(--tab-h);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      font-size: 17px;
+      font-weight: 1000;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .tab-btn .icon {
+      display: grid;
+      place-items: center;
+      width: 48px;
+      height: 38px;
+      border-radius: 999px;
+      font-size: 31px;
+    }
+    .tab-btn.active { color: var(--blue); }
+    .tab-btn.active .icon { background: #dbeafe; }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(var(--tab-h) + 20px + var(--safe-bottom));
+      transform: translateX(-50%);
+      display: none;
+      max-width: calc(100vw - 32px);
+      padding: 16px 22px;
+      border-radius: 999px;
+      background: rgba(15,23,42,.92);
+      color: #fff;
+      text-align: center;
+      font-size: 21px;
+      font-weight: 950;
+      z-index: 99;
+    }
+    .toast.show { display: block; }
+
+    @media (max-width: 375px) {
+      .summary-grid { grid-template-columns: 1fr; }
+      .summary-card {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        text-align: left;
+        padding: 14px 16px;
+      }
+      .summary-label { margin-bottom: 0; font-size: 16px; }
+      .summary-value { font-size: 23px; }
+    }
+  </style>
+</head>
+
+<body>
+<div id="app">
+  <div class="top-bar" id="topBarTitle">零用金管理</div>
+
+  <main class="content" id="appContent">
+    <section class="page active" id="page-home">
+      <div id="homeContent">
+        <div class="empty-state">載入中...</div>
+      </div>
+    </section>
+
+    <section class="page" id="page-transaction">
+      <div class="card form-card">
+        <div class="section-title-row">
+          <div class="section-label">新增收支</div>
+          <div class="section-hint">快速記帳</div>
+        </div>
+
+        <div class="form-group">
+          <label for="txDate">日期</label>
+          <input type="date" id="txDate" />
+        </div>
+
+        <div class="form-group">
+          <label for="txType">動作類型</label>
+          <div class="select-wrap">
+            <select id="txType">
+              <option value="取款">取款（先借出去）</option>
+              <option value="實際支出">實際支出（直接付款）</option>
+              <option value="找零歸還">找零歸還（零錢回來了）</option>
+              <option value="收入">收入（錢進來）</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="txAmount">金額（元） <span class="field-hint">必填</span></label>
+          <input type="number" id="txAmount" placeholder="例如：100" min="0" inputmode="numeric" />
+        </div>
+
+        <div class="form-group">
+          <label for="txNote">說明</label>
+          <input type="text" id="txNote" placeholder="例如：去郵局寄信" />
+        </div>
+
+        <div class="form-group">
+          <label for="txHandler">經手人</label>
+          <input type="text" id="txHandler" placeholder="誰動的錢" />
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="txSubmitBtn" onclick="submitTransaction()">送出記錄</button>
+    </section>
+
+    <section class="page" id="page-inventory">
+      <div class="card money-section">
+        <div class="section-title-row">
+          <div class="section-label">硬幣</div>
+          <div class="section-hint">填數量</div>
+        </div>
+        <div class="coin-grid">
+          <div class="coin-cell"><label>1 元</label><input type="number" class="coin-input" data-val="1" placeholder="0" min="0" inputmode="numeric" oninput="calcTotal()" /></div>
+          <div class="coin-cell"><label>5 元</label><input type="number" class="coin-input" data-val="5" placeholder="0" min="0" inputmode="numeric" oninput="calcTotal()" /></div>
+          <div class="coin-cell"><label>10 元</label><input type="number" class="coin-input" data-val="10" placeholder="0" min="0" inputmode="numeric" oninput="calcTotal()" /></div>
+          <div class="coin-cell"><label>50 元</label><input type="number" class="coin-input" data-val="50" placeholder="0" min="0" inputmode="numeric" oninput="calcTotal()" /></div>
+        </div>
+      </div>
+
+      <div class="card money-section">
+        <div class="section-title-row">
+          <div class="section-label">紙鈔</div>
+          <div class="section-hint">填張數</div>
+        </div>
+        <div class="coin-grid">
+          <div class="coin-cell"><label>100 元</label><input type="number" class="bill-input" data-val="100" placeholder="0" min="0" inputmode="numeric" oninput="calcTotal()" /></div>
+          <div class="coin-cell"><label>200 元</label><input type="number" class="bill-input" data-val="200" placeholder="0" min="0" inputmode="numeric" oninput="calcTotal()" /></div>
+          <div class="coin-cell"><label>500 元</label><input type="number" class="bill-input" data-val="500" placeholder="0" min="0" inputmode="numeric" oninput="calcTotal()" /></div>
+          <div class="coin-cell"><label>1000 元</label><input type="number" class="bill-input" data-val="1000" placeholder="0" min="0" inputmode="numeric" oninput="calcTotal()" /></div>
+        </div>
+      </div>
+
+      <div class="count-summary">
+        <div class="count-row"><span class="count-row-label">實際現金</span><span class="count-row-value" id="actualTotalDisplay">$0</span></div>
+        <div class="count-row"><span class="count-row-label">帳面餘額</span><span class="count-row-value" id="ledgerBalance">讀取中...</span></div>
+        <div class="count-row total"><span class="count-row-label">盤點差異</span><span class="count-row-value" id="diffDisplay">—</span></div>
+      </div>
+
+      <div class="card" id="diffNoteGroup" style="display:none;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="diffNote">差異原因 <span class="field-hint">必填</span></label>
+          <textarea id="diffNote" placeholder="例如：找零給錯、收據還沒交回來"></textarea>
+        </div>
+      </div>
+
+      <button class="btn btn-success" id="invSubmitBtn" onclick="submitInventory()">送出盤點</button>
+    </section>
+  </main>
+
+  <nav class="tab-bar">
+    <button class="tab-btn active" id="nav-home" onclick="switchPage('home')"><span class="icon">🏠</span>首頁</button>
+    <button class="tab-btn" id="nav-transaction" onclick="switchPage('transaction')"><span class="icon">📝</span>收支</button>
+    <button class="tab-btn" id="nav-inventory" onclick="switchPage('inventory')"><span class="icon">🔢</span>盤點</button>
+  </nav>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const API_URL = '/.netlify/functions/api';
+
+  function setAppHeight() {
+    document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px');
+  }
+  setAppHeight();
+  window.addEventListener('resize', setAppHeight);
+  window.addEventListener('orientationchange', setAppHeight);
+
+  function $(id) { return document.getElementById(id); }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function money(value) {
+    return '$' + Number(value || 0).toLocaleString();
+  }
+
+  function todayText() {
+    var d = new Date();
+    return String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function fullDateValue() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function todaySlashDate() {
+    var d = new Date();
+    return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function showToast(msg) {
+    var el = $('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(window.__toastTimer);
+    window.__toastTimer = setTimeout(function() { el.classList.remove('show'); }, 2200);
+  }
+
+  function api(action, params) {
+    params = params || {};
+    var query = new URLSearchParams(Object.assign({}, params, { action: action }));
+
+    return fetch(API_URL + '?' + query.toString(), {
+      cache: 'no-store'
+    })
+      .then(function(res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function(data) {
+        if (data && data.success) return data.data;
+        if (data && data.ok) return data.data;
+        throw new Error(data && data.error ? data.error : 'API 錯誤');
+      });
+  }
+
+  function switchPage(page) {
+    document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    $('page-' + page).classList.add('active');
+    $('nav-' + page).classList.add('active');
+
+    $('topBarTitle').textContent = {
+      home: '零用金管理',
+      transaction: '新增收支',
+      inventory: '每日盤點'
+    }[page];
+
+    $('appContent').scrollTop = 0;
+    if (page === 'transaction') initTransactionForm();
+    if (page === 'inventory') initInventoryForm();
+  }
+
+  function calcRecentSummary(recent) {
+    var out = 0, income = 0;
+    (recent || []).forEach(function(r) {
+      var amount = Number(r.amount || 0);
+      if (r.type === '取款' || r.type === '實際支出') out += amount;
+      if (r.type === '找零歸還' || r.type === '收入') income += amount;
+    });
+    return { out: out, income: income, count: (recent || []).length };
+  }
+
+  function loadHome() {
+    $('homeContent').innerHTML = '<div class="empty-state">載入中...</div>';
+    api('getHomeData')
+      .then(renderHome)
+      .catch(function(err) {
+        $('homeContent').innerHTML = '<div class="card"><div class="empty-state">載入失敗<small>' + escapeHtml(err.message) + '</small></div></div>';
+      });
+  }
+
+  function renderHome(data) {
+    data = data || {};
+    var recent = data.recent || [];
+    var summary = calcRecentSummary(recent);
+
+    var badgeHtml = data.todayDone
+      ? '<span class="badge badge-ok">✓ 今日已盤點</span>'
+      : '<span class="badge badge-warn">⚠ 今日未盤點</span>';
+
+    var recordsHtml = '';
+    if (!recent.length) {
+      recordsHtml = '<div class="empty-state">尚無記錄<small>可以先新增一筆收支，開始建立流水帳</small></div>';
+    } else {
+      recent.forEach(function(r) {
+        var isOut = r.type === '取款' || r.type === '實際支出';
+        recordsHtml +=
+          '<div class="record-item">' +
+            '<div>' +
+              '<div class="record-type">' + escapeHtml(r.type) + (r.note ? '｜' + escapeHtml(r.note) : '') + '</div>' +
+              '<div class="record-note">' + escapeHtml(r.date) + (r.handler ? '　' + escapeHtml(r.handler) : '') + '</div>' +
+            '</div>' +
+            '<div class="' + (isOut ? 'record-amount-out' : 'record-amount-in') + '">' + (isOut ? '－' : '＋') + money(r.amount) + '</div>' +
+          '</div>';
+      });
+    }
+
+    $('homeContent').innerHTML =
+      '<div class="hero-card">' +
+        '<div class="hero-top"><div class="hero-label">帳面餘額</div><div class="hero-date">今日 ' + todayText() + '</div></div>' +
+        '<div class="balance-amount">' + money(data.balance) + '</div>' +
+        '<div class="hero-footer">' + badgeHtml + '<div class="mini-update">最近 5 筆快速摘要</div></div>' +
+        '<div class="hero-meta-line"><span class="meta-pill">最後更新：' + escapeHtml(data.lastUpdated || '尚無更新時間') + '</span></div>' +
+      '</div>' +
+
+      '<div class="action-grid">' +
+        '<button class="action-card primary" onclick="switchPage(&quot;transaction&quot;)"><span class="action-icon">＋</span><span class="action-title">新增收支</span><span class="action-sub">支出、收入、找零</span></button>' +
+        '<button class="action-card success" onclick="switchPage(&quot;inventory&quot;)"><span class="action-icon">🔢</span><span class="action-title">盤點現金</span><span class="action-sub">硬幣、紙鈔快速填</span></button>' +
+      '</div>' +
+
+      '<div class="summary-grid">' +
+        '<div class="summary-card"><div class="summary-label">最近支出</div><div class="summary-value red">' + money(summary.out) + '</div></div>' +
+        '<div class="summary-card"><div class="summary-label">最近收入</div><div class="summary-value green">' + money(summary.income) + '</div></div>' +
+        '<div class="summary-card"><div class="summary-label">記錄筆數</div><div class="summary-value blue">' + summary.count + '</div></div>' +
+      '</div>' +
+
+      '<div class="card">' +
+        '<div class="section-title-row"><div class="section-label">最近記錄</div><div class="section-hint">最新 5 筆</div></div>' +
+        recordsHtml +
+      '</div>';
+  }
+
+  function initTransactionForm() {
+    if (!$('txDate').value) $('txDate').value = fullDateValue();
+  }
+
+  function submitTransaction() {
+    var date = $('txDate').value;
+    var type = $('txType').value;
+    var amount = parseFloat($('txAmount').value);
+    var note = $('txNote').value.trim();
+    var handler = $('txHandler').value.trim();
+
+    if (!date) { showToast('請選擇日期'); return; }
+    if (isNaN(amount) || amount <= 0) { showToast('請填寫正確金額'); return; }
+
+    var btn = $('txSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = '送出中...';
+
+    api('addTransaction', {
+      date: date.replace(/-/g, '/'),
+      type: type,
+      amount: amount,
+      note: note,
+      handler: handler
+    }).then(function(result) {
+      btn.disabled = false;
+      btn.textContent = '送出記錄';
+      $('txAmount').value = '';
+      $('txNote').value = '';
+      showToast('已記錄，餘額 ' + money(result.newBalance));
+      loadHome();
+      setTimeout(function() { switchPage('home'); }, 650);
+    }).catch(function(err) {
+      btn.disabled = false;
+      btn.textContent = '送出記錄';
+      showToast(err.message || '送出失敗');
+    });
+  }
+
+  var _ledgerBalance = null;
+
+  function initInventoryForm() {
+    var btn = $('invSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = '讀取餘額中...';
+    $('ledgerBalance').textContent = '讀取中...';
+    $('diffDisplay').textContent = '—';
+
+    api('getBalance')
+      .then(function(balance) {
+        _ledgerBalance = Number(balance || 0);
+        $('ledgerBalance').textContent = money(_ledgerBalance);
+        btn.disabled = false;
+        btn.textContent = '送出盤點';
+        calcTotal();
+      })
+      .catch(function(err) {
+        btn.disabled = false;
+        btn.textContent = '重新讀取後再送出';
+        $('ledgerBalance').textContent = '讀取失敗';
+        showToast(err.message || '餘額讀取失敗');
+      });
+  }
+
+  function calcTotal() {
+    var total = 0;
+    document.querySelectorAll('.coin-input, .bill-input').forEach(function(el) {
+      total += (parseFloat(el.value) || 0) * parseFloat(el.dataset.val);
+    });
+
+    $('actualTotalDisplay').textContent = money(total);
+
+    if (_ledgerBalance === null) {
+      $('diffDisplay').textContent = '等待讀取...';
+      return;
+    }
+
+    var diff = total - _ledgerBalance;
+    var diffEl = $('diffDisplay');
+    var noteGroup = $('diffNoteGroup');
+
+    if (diff === 0) {
+      diffEl.textContent = '±$0 相符 ✓';
+      diffEl.className = 'count-row-value diff-ok';
+      noteGroup.style.display = 'none';
+    } else if (diff > 0) {
+      diffEl.textContent = '＋' + money(diff) + ' 溢';
+      diffEl.className = 'count-row-value diff-surplus';
+      noteGroup.style.display = 'block';
+    } else {
+      diffEl.textContent = '－' + money(Math.abs(diff)) + ' 短';
+      diffEl.className = 'count-row-value diff-short';
+      noteGroup.style.display = 'block';
+    }
+  }
+
+  function getCoinBillValues() {
+    var c = document.querySelectorAll('.coin-input');
+    var b = document.querySelectorAll('.bill-input');
+    return {
+      coin1: parseFloat(c[0].value) || 0,
+      coin5: parseFloat(c[1].value) || 0,
+      coin10: parseFloat(c[2].value) || 0,
+      coin50: parseFloat(c[3].value) || 0,
+      bill100: parseFloat(b[0].value) || 0,
+      bill200: parseFloat(b[1].value) || 0,
+      bill500: parseFloat(b[2].value) || 0,
+      bill1000: parseFloat(b[3].value) || 0
+    };
+  }
+
+  function submitInventory() {
+    if (_ledgerBalance === null) { showToast('請先等待帳面餘額讀取完成'); return; }
+
+    var vals = getCoinBillValues();
+    var actualTotal =
+      vals.coin1 * 1 + vals.coin5 * 5 + vals.coin10 * 10 + vals.coin50 * 50 +
+      vals.bill100 * 100 + vals.bill200 * 200 + vals.bill500 * 500 + vals.bill1000 * 1000;
+
+    var diff = actualTotal - _ledgerBalance;
+    var diffNote = $('diffNote').value.trim();
+
+    if (diff !== 0 && !diffNote) {
+      showToast('有差異時請填寫差異原因');
+      return;
+    }
+
+    var btn = $('invSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = '送出中...';
+
+    api('addInventory', Object.assign({}, vals, {
+      date: todaySlashDate(),
+      actualTotal: actualTotal,
+      diffNote: diffNote
+    })).then(function(result) {
+      btn.disabled = false;
+      btn.textContent = '送出盤點';
+      showToast(diff === 0 ? '盤點完成，帳面相符' : '盤點完成，差異已記錄');
+
+      document.querySelectorAll('.coin-input, .bill-input').forEach(function(el) { el.value = ''; });
+      $('diffNote').value = '';
+
+      _ledgerBalance = Number(result.newBalance || 0);
+      $('ledgerBalance').textContent = money(_ledgerBalance);
+      calcTotal();
+      loadHome();
+      setTimeout(function() { switchPage('home'); }, 700);
+    }).catch(function(err) {
+      btn.disabled = false;
+      btn.textContent = '送出盤點';
+      showToast(err.message || '送出失敗');
+    });
+  }
+
+  window.addEventListener('load', loadHome);
+
+  // 先停用舊 Service Worker，避免手機一直吃到舊版快取。
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        registrations.forEach(function(registration) {
+          registration.unregister();
+        });
+      }).catch(function() {});
+    });
+  }
+</script>
+</body>
+</html>
