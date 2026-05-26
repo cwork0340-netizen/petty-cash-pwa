@@ -222,7 +222,7 @@
 
     .summary-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 9px;
       margin-bottom: 14px;
     }
@@ -458,7 +458,7 @@
     .tab-bar {
       min-height: calc(var(--tab-h) + var(--safe-bottom));
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       padding: 0 8px;
       padding-bottom: var(--safe-bottom);
       background: rgba(255,255,255,.96);
@@ -510,6 +510,24 @@
       z-index: 99;
     }
     .toast.show { display: block; }
+
+
+
+    .btn-secondary {
+      background: linear-gradient(135deg, #334155, #64748b);
+    }
+
+    .settings-note {
+      color: var(--muted);
+      font-size: 16px;
+      font-weight: 850;
+      line-height: 1.45;
+      margin: -4px 0 16px;
+    }
+
+    .database-card {
+      background: linear-gradient(135deg, #0f172a, #334155);
+    }
 
     @media (max-width: 375px) {
       .summary-grid { grid-template-columns: 1fr; }
@@ -622,12 +640,59 @@
 
       <button class="btn btn-success" id="invSubmitBtn" onclick="submitInventory()">送出盤點</button>
     </section>
+
+
+    <section class="page" id="page-settings">
+      <div class="card form-card">
+        <div class="section-title-row">
+          <div class="section-label">原始金額設定</div>
+          <div class="section-hint">期初資料</div>
+        </div>
+        <div class="settings-note">這裡用來記錄零用金的期初金額與原始鈔票/硬幣數量，不會取代每日盤點紀錄。</div>
+
+        <div class="form-group">
+          <label for="settingOriginalAmount">原始金額（元）</label>
+          <input type="number" id="settingOriginalAmount" placeholder="例如：5000" min="0" inputmode="numeric" />
+        </div>
+      </div>
+
+      <div class="card money-section">
+        <div class="section-title-row">
+          <div class="section-label">原始硬幣數</div>
+          <div class="section-hint">填數量</div>
+        </div>
+        <div class="coin-grid">
+          <div class="coin-cell"><label>1 元</label><input type="number" id="setCoin1" placeholder="0" min="0" inputmode="numeric" /></div>
+          <div class="coin-cell"><label>5 元</label><input type="number" id="setCoin5" placeholder="0" min="0" inputmode="numeric" /></div>
+          <div class="coin-cell"><label>10 元</label><input type="number" id="setCoin10" placeholder="0" min="0" inputmode="numeric" /></div>
+          <div class="coin-cell"><label>50 元</label><input type="number" id="setCoin50" placeholder="0" min="0" inputmode="numeric" /></div>
+        </div>
+      </div>
+
+      <div class="card money-section">
+        <div class="section-title-row">
+          <div class="section-label">原始紙鈔數</div>
+          <div class="section-hint">填張數</div>
+        </div>
+        <div class="coin-grid">
+          <div class="coin-cell"><label>100 元</label><input type="number" id="setBill100" placeholder="0" min="0" inputmode="numeric" /></div>
+          <div class="coin-cell"><label>200 元</label><input type="number" id="setBill200" placeholder="0" min="0" inputmode="numeric" /></div>
+          <div class="coin-cell"><label>500 元</label><input type="number" id="setBill500" placeholder="0" min="0" inputmode="numeric" /></div>
+          <div class="coin-cell"><label>1000 元</label><input type="number" id="setBill1000" placeholder="0" min="0" inputmode="numeric" /></div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="settingsSubmitBtn" onclick="submitSettings()">儲存原始設定</button>
+      <button class="btn btn-secondary" style="margin-top:12px;" onclick="openDatabase()">開啟資料庫 / 試算表</button>
+    </section>
+
   </main>
 
   <nav class="tab-bar">
     <button class="tab-btn active" id="nav-home" onclick="switchPage('home')"><span class="icon">🏠</span>首頁</button>
     <button class="tab-btn" id="nav-transaction" onclick="switchPage('transaction')"><span class="icon">📝</span>收支</button>
     <button class="tab-btn" id="nav-inventory" onclick="switchPage('inventory')"><span class="icon">🔢</span>盤點</button>
+    <button class="tab-btn" id="nav-settings" onclick="switchPage('settings')"><span class="icon">⚙️</span>設定</button>
   </nav>
 </div>
 
@@ -635,6 +700,7 @@
 
 <script>
   const API_URL = '/.netlify/functions/api';
+  const DATABASE_URL = 'https://docs.google.com/spreadsheets/d/1WjDwixtAbU7rywz-E83z3Bhflkhz4Iswvlek_NvSTI4/edit';
 
   function setAppHeight() {
     document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px');
@@ -708,12 +774,14 @@
     $('topBarTitle').textContent = {
       home: '零用金管理',
       transaction: '新增收支',
-      inventory: '每日盤點'
+      inventory: '每日盤點',
+      settings: '設定與資料庫'
     }[page];
 
     $('appContent').scrollTop = 0;
     if (page === 'transaction') initTransactionForm();
     if (page === 'inventory') initInventoryForm();
+    if (page === 'settings') initSettingsForm();
   }
 
   function calcRecentSummary(recent) {
@@ -772,6 +840,8 @@
       '<div class="action-grid">' +
         '<button class="action-card primary" onclick="switchPage(&quot;transaction&quot;)"><span class="action-icon">＋</span><span class="action-title">新增收支</span><span class="action-sub">支出、收入、找零</span></button>' +
         '<button class="action-card success" onclick="switchPage(&quot;inventory&quot;)"><span class="action-icon">🔢</span><span class="action-title">盤點現金</span><span class="action-sub">硬幣、紙鈔快速填</span></button>' +
+        '<button class="action-card database-card" onclick="openDatabase()"><span class="action-icon">📊</span><span class="action-title">開啟資料庫</span><span class="action-sub">查看 Google Sheet</span></button>' +
+        '<button class="action-card" style="background:linear-gradient(135deg,#7c3aed,#a78bfa);" onclick="switchPage(&quot;settings&quot;)"><span class="action-icon">⚙️</span><span class="action-title">原始設定</span><span class="action-sub">金額、鈔票硬幣</span></button>' +
       '</div>' +
 
       '<div class="summary-grid">' +
@@ -940,6 +1010,89 @@
       showToast(err.message || '送出失敗');
     });
   }
+
+
+  function openDatabase() {
+    window.open(DATABASE_URL, '_blank', 'noopener,noreferrer');
+  }
+
+  function setValue(id, value) {
+    var el = $(id);
+    if (el) el.value = value == null ? '' : value;
+  }
+
+  function getNumberValue(id) {
+    var el = $(id);
+    return el ? (parseFloat(el.value) || 0) : 0;
+  }
+
+  function initSettingsForm() {
+    var btn = $('settingsSubmitBtn');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '讀取設定中...';
+    }
+
+    api('getSettings')
+      .then(function(settings) {
+        settings = settings || {};
+        setValue('settingOriginalAmount', settings.originalAmount || 0);
+        setValue('setCoin1', settings.coin1 || 0);
+        setValue('setCoin5', settings.coin5 || 0);
+        setValue('setCoin10', settings.coin10 || 0);
+        setValue('setCoin50', settings.coin50 || 0);
+        setValue('setBill100', settings.bill100 || 0);
+        setValue('setBill200', settings.bill200 || 0);
+        setValue('setBill500', settings.bill500 || 0);
+        setValue('setBill1000', settings.bill1000 || 0);
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '儲存原始設定';
+        }
+      })
+      .catch(function(err) {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '儲存原始設定';
+        }
+        showToast(err.message || '設定讀取失敗');
+      });
+  }
+
+  function submitSettings() {
+    var btn = $('settingsSubmitBtn');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '儲存中...';
+    }
+
+    api('updateSettings', {
+      originalAmount: getNumberValue('settingOriginalAmount'),
+      coin1: getNumberValue('setCoin1'),
+      coin5: getNumberValue('setCoin5'),
+      coin10: getNumberValue('setCoin10'),
+      coin50: getNumberValue('setCoin50'),
+      bill100: getNumberValue('setBill100'),
+      bill200: getNumberValue('setBill200'),
+      bill500: getNumberValue('setBill500'),
+      bill1000: getNumberValue('setBill1000')
+    })
+      .then(function() {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '儲存原始設定';
+        }
+        showToast('原始設定已儲存');
+      })
+      .catch(function(err) {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '儲存原始設定';
+        }
+        showToast(err.message || '儲存失敗');
+      });
+  }
+
 
   window.addEventListener('load', loadHome);
 
