@@ -628,7 +628,8 @@
 
         <div class="form-group">
           <label for="txHandler">經手人</label>
-          <input type="text" id="txHandler" placeholder="誰動的錢" />
+          <input type="text" id="txHandler" list="peopleList" placeholder="選擇或輸入人員" />
+          <datalist id="peopleList"></datalist>
         </div>
       </div>
 
@@ -774,7 +775,20 @@
         </div>
       </div>
 
+      <div class="card form-card">
+        <div class="section-title-row">
+          <div class="section-label">常用人員</div>
+          <div class="section-hint">降低打字</div>
+        </div>
+        <div class="settings-note">每行一個名字。拿錢、報帳與月結會用同一套名稱，避免同一個人被拆成多種寫法。</div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="peopleSettings">人員名單</label>
+          <textarea id="peopleSettings" placeholder="佳佳&#10;芯誼&#10;Bing"></textarea>
+        </div>
+      </div>
+
       <button class="btn btn-primary" id="settingsSubmitBtn" onclick="submitSettings()">儲存原始設定</button>
+      <button class="btn btn-secondary" style="margin-top:12px;" onclick="submitPeopleSettings()">儲存常用人員</button>
       <button class="btn btn-secondary" style="margin-top:12px;" onclick="openDatabase()">開啟資料庫 / 試算表</button>
     </section>
 
@@ -809,6 +823,52 @@
   window.addEventListener('orientationchange', setAppHeight);
 
   function $(id) { return document.getElementById(id); }
+
+  var DEFAULT_PEOPLE = ['佳佳', '芯誼', 'Bing', 'Ivy', '秉哥', '黑貓', '詹姆士', 'Lalamove'];
+  var PEOPLE_STORAGE_KEY = 'pettyCashPeople';
+
+  function normalizePeople(list) {
+    var seen = {};
+    return (list || [])
+      .map(function(name) { return String(name || '').trim(); })
+      .filter(function(name) {
+        if (!name || seen[name]) return false;
+        seen[name] = true;
+        return true;
+      });
+  }
+
+  function getPeopleList() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(PEOPLE_STORAGE_KEY) || '[]');
+      return normalizePeople(saved.length ? saved : DEFAULT_PEOPLE);
+    } catch (err) {
+      return DEFAULT_PEOPLE.slice();
+    }
+  }
+
+  function savePeopleList(list) {
+    localStorage.setItem(PEOPLE_STORAGE_KEY, JSON.stringify(normalizePeople(list)));
+    renderPeopleDatalist();
+  }
+
+  function rememberPerson(name) {
+    name = String(name || '').trim();
+    if (!name || name === '未填經手人') return;
+    var list = getPeopleList();
+    if (list.indexOf(name) === -1) {
+      list.push(name);
+      savePeopleList(list);
+    }
+  }
+
+  function renderPeopleDatalist() {
+    var el = $('peopleList');
+    if (!el) return;
+    el.innerHTML = getPeopleList().map(function(name) {
+      return '<option value="' + escapeHtml(name) + '"></option>';
+    }).join('');
+  }
 
   function escapeHtml(value) {
     return String(value == null ? '' : value)
@@ -1041,6 +1101,7 @@
   }
 
   function initTransactionForm() {
+    renderPeopleDatalist();
     if (!$('txDate').value) $('txDate').value = fullDateValue();
   }
 
@@ -1055,6 +1116,7 @@
     if (isNaN(amount) || amount <= 0) { showToast('請填寫正確金額'); return; }
     if (!note) note = '未填用途';
     if (!handler) handler = '未填經手人';
+    rememberPerson(handler);
 
     var btn = $('txSubmitBtn');
     btn.disabled = true;
@@ -1462,6 +1524,11 @@
   }
 
   function initSettingsForm() {
+    renderPeopleDatalist();
+    if ($('peopleSettings')) {
+      $('peopleSettings').value = getPeopleList().join('\n');
+    }
+
     var btn = $('settingsSubmitBtn');
     if (btn) {
       btn.disabled = true;
@@ -1492,8 +1559,21 @@
           btn.disabled = false;
           btn.textContent = '儲存原始設定';
         }
-        showToast(err.message || '設定讀取失敗');
-      });
+      showToast(err.message || '設定讀取失敗');
+    });
+  }
+
+  function submitPeopleSettings() {
+    var el = $('peopleSettings');
+    if (!el) return;
+    var list = normalizePeople(el.value.split(/\r?\n|,/));
+    if (!list.length) {
+      showToast('請至少保留一位常用人員');
+      return;
+    }
+    savePeopleList(list);
+    el.value = getPeopleList().join('\n');
+    showToast('常用人員已儲存');
   }
 
   function submitSettings() {
