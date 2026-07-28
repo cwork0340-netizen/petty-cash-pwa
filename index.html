@@ -1053,8 +1053,8 @@
 
     if (!date) { showToast('請選擇日期'); return; }
     if (isNaN(amount) || amount <= 0) { showToast('請填寫正確金額'); return; }
-    if (!note) { showToast('請填寫用途，月底才找得到款項'); return; }
-    if (!handler) { showToast('請填寫經手人'); return; }
+    if (!note) note = '未填用途';
+    if (!handler) handler = '未填經手人';
 
     var btn = $('txSubmitBtn');
     btn.disabled = true;
@@ -1198,26 +1198,15 @@
       returnedAmount: returned,
       receiptStatus: receiptStatus,
       diffAmount: diff,
-      diffNote: diffNote
+      diffNote: diffNote,
+      note: commonNote,
+      handler: handler,
+      status: diff === 0 ? (receiptStatus === '待補' ? '待補收據' : '已結清') : '待查差異'
     };
 
     api('closeWithdrawal', closeParams)
       .then(function() {
         return Promise.resolve([]);
-      })
-      .catch(function() {
-        var writes = [];
-        if (returned > 0) {
-          writes.push(api('addTransaction', {
-            date: todaySlashDate(),
-            type: '找零歸還',
-            amount: returned,
-            note: commonNote,
-            handler: handler
-          }));
-        }
-        if (!writes.length) writes.push(Promise.resolve({}));
-        return Promise.all(writes);
       })
       .then(function() {
         btn.disabled = false;
@@ -1233,7 +1222,7 @@
       .catch(function(err) {
         btn.disabled = false;
         btn.textContent = '送出結清';
-        showToast(err.message || '結清失敗');
+        showToast(err.message || '結清功能尚未完成，未寫入任何資料');
       });
   }
 
