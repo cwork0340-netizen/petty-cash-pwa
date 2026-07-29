@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#172554" />
+  <meta name="theme-color" content="#0f766e" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="零用金" />
@@ -15,15 +15,16 @@
       --vh: 1vh;
       --safe-top: env(safe-area-inset-top);
       --safe-bottom: env(safe-area-inset-bottom);
-      --bg: #eef2f7;
+      --bg: #f3f6f4;
       --card: #fff;
-      --text: #0f172a;
-      --muted: #64748b;
-      --blue: #2563eb;
-      --blue-dark: #172554;
-      --green: #16a34a;
-      --red: #dc2626;
-      --line: #e2e8f0;
+      --text: #17201f;
+      --muted: #66746f;
+      --blue: #0f766e;
+      --blue-dark: #134e4a;
+      --green: #15803d;
+      --red: #b4232a;
+      --amber: #b7791f;
+      --line: #dce5e1;
       --tab-h: 84px;
     }
 
@@ -49,8 +50,7 @@
       display: grid;
       grid-template-rows: auto 1fr auto;
       background:
-        radial-gradient(circle at 12% 0%, rgba(96,165,250,.18), transparent 34%),
-        linear-gradient(180deg, #f8fbff, #eef2f7 45%, #e9eef5);
+        linear-gradient(180deg, #fbfcfa, #f3f6f4 48%, #edf3f0);
       overflow: hidden;
     }
 
@@ -62,7 +62,7 @@
       align-items: center;
       justify-content: center;
       color: #fff;
-      background: linear-gradient(135deg, #172554, #2563eb);
+      background: linear-gradient(135deg, #134e4a, #0f766e);
       font-size: 19px;
       font-weight: 1000;
       box-shadow: 0 4px 18px rgba(23,37,84,.18);
@@ -91,9 +91,7 @@
       margin-bottom: 14px;
       color: #fff;
       background:
-        radial-gradient(circle at 88% 18%, rgba(255,255,255,.34), transparent 18%),
-        radial-gradient(circle at 12% 88%, rgba(45,212,191,.22), transparent 24%),
-        linear-gradient(135deg, #172554 0%, #1d4ed8 48%, #60a5fa 100%);
+        linear-gradient(135deg, #134e4a 0%, #0f766e 54%, #5aa99d 100%);
       box-shadow: 0 18px 42px rgba(30,41,59,.13);
       border: 1px solid rgba(255,255,255,.18);
     }
@@ -103,8 +101,7 @@
       position: absolute;
       inset: 0;
       background:
-        linear-gradient(120deg, rgba(255,255,255,.16), transparent 32%),
-        repeating-linear-gradient(135deg, rgba(255,255,255,.055) 0, rgba(255,255,255,.055) 1px, transparent 1px, transparent 10px);
+        linear-gradient(120deg, rgba(255,255,255,.14), transparent 36%);
       pointer-events: none;
     }
 
@@ -203,8 +200,11 @@
       box-shadow: 0 8px 22px rgba(30,41,59,.08);
     }
 
-    .action-card.primary { background: linear-gradient(135deg, #1e3a8a, #2563eb); }
-    .action-card.success { background: linear-gradient(135deg, #166534, #22c55e); }
+    .action-card.primary { background: linear-gradient(135deg, #134e4a, #0f766e); }
+    .action-card.success { background: linear-gradient(135deg, #166534, #4d8f65); }
+    .action-card.settle { background: linear-gradient(135deg, #155e75, #2c8f8a); }
+    .action-card.monthly { background: linear-gradient(135deg, #374151, #64748b); }
+    .action-card.settings { background: linear-gradient(135deg, #334155, #6b7280); }
 
     .action-icon {
       grid-row: 1 / span 2;
@@ -213,8 +213,10 @@
       width: 52px;
       height: 52px;
       border-radius: 16px;
-      background: rgba(255,255,255,.18);
-      font-size: 32px;
+      background: rgba(255,255,255,.16);
+      font-size: 22px;
+      font-weight: 1000;
+      letter-spacing: 0;
     }
 
     .action-title { font-size: 25px; line-height: 1.12; font-weight: 1000; }
@@ -236,9 +238,9 @@
       box-shadow: 0 6px 16px rgba(15,23,42,.055);
     }
 
-    .summary-card:nth-child(1) { background: linear-gradient(180deg, #fff7f7, rgba(255,255,255,.92)); }
-    .summary-card:nth-child(2) { background: linear-gradient(180deg, #f0fdf4, rgba(255,255,255,.92)); }
-    .summary-card:nth-child(3) { background: linear-gradient(180deg, #eff6ff, rgba(255,255,255,.92)); }
+    .summary-card:nth-child(1) { background: linear-gradient(180deg, #fff7f5, rgba(255,255,255,.92)); }
+    .summary-card:nth-child(2) { background: linear-gradient(180deg, #f1f8f3, rgba(255,255,255,.92)); }
+    .summary-card:nth-child(3) { background: linear-gradient(180deg, #eef8f7, rgba(255,255,255,.92)); }
 
     .summary-label { color: var(--muted); font-size: 15px; font-weight: 900; margin-bottom: 6px; }
     .summary-value { font-size: 22px; font-weight: 1000; }
@@ -277,7 +279,7 @@
       margin-right: 8px;
       border-radius: 999px;
       vertical-align: -4px;
-      background: linear-gradient(180deg, var(--blue), #2dd4bf);
+      background: linear-gradient(180deg, var(--blue), #6aa99d);
     }
 
     .section-hint {
@@ -408,7 +410,7 @@
 
     input:focus, select:focus, textarea:focus {
       outline: 4px solid rgba(37,99,235,.13);
-      border-color: #3b82f6;
+      border-color: #0f766e;
     }
 
     .select-wrap { position: relative; }
@@ -439,8 +441,8 @@
       box-shadow: 0 10px 22px rgba(37,99,235,.15), inset 0 1px 0 rgba(255,255,255,.72);
       cursor: pointer;
     }
-    .btn-primary { background: linear-gradient(135deg, #1e3a8a, #2563eb); }
-    .btn-success { background: linear-gradient(135deg, #166534, #22c55e); }
+    .btn-primary { background: linear-gradient(135deg, #134e4a, #0f766e); }
+    .btn-success { background: linear-gradient(135deg, #166534, #4d8f65); }
     .btn:disabled { background: #e2e8f0; color: #94a3b8; box-shadow: none; }
 
     .coin-grid {
@@ -529,7 +531,7 @@
       font-size: 26px;
     }
     .tab-btn.active { color: var(--blue); }
-    .tab-btn.active .icon { background: #dbeafe; }
+    .tab-btn.active .icon { background: #d9f0ec; }
 
     .toast {
       position: fixed;
@@ -564,7 +566,7 @@
     }
 
     .database-card {
-      background: linear-gradient(135deg, #0f172a, #334155);
+      background: linear-gradient(135deg, #1f2937, #475569);
     }
 
     @media (max-width: 375px) {
@@ -801,18 +803,18 @@
   </main>
 
   <nav class="tab-bar">
-    <button class="tab-btn active" id="nav-home" onclick="switchPage('home')"><span class="icon">🏠</span>首頁</button>
+    <button class="tab-btn active" id="nav-home" onclick="switchPage('home')"><span class="icon">⌂</span>首頁</button>
     <button class="tab-btn" id="nav-transaction" onclick="switchPage('transaction')"><span class="icon">＋</span>拿錢</button>
-    <button class="tab-btn" id="nav-close" onclick="switchPage('close')"><span class="icon">✓</span>報帳</button>
-    <button class="tab-btn" id="nav-inventory" onclick="switchPage('inventory')"><span class="icon">🔢</span>盤點</button>
-    <button class="tab-btn" id="nav-monthly" onclick="switchPage('monthly')"><span class="icon">📊</span>月結</button>
+    <button class="tab-btn" id="nav-close" onclick="switchPage('close')"><span class="icon">✓</span>結清</button>
+    <button class="tab-btn" id="nav-inventory" onclick="switchPage('inventory')"><span class="icon">▦</span>盤點</button>
+    <button class="tab-btn" id="nav-monthly" onclick="switchPage('monthly')"><span class="icon">□</span>月結</button>
   </nav>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-  const API_URL = '/.netlify/functions/api';
+  const API_URL = '/api/gas';
   const DATABASE_URL = 'https://docs.google.com/spreadsheets/d/1WjDwixtAbU7rywz-E83z3Bhflkhz4Iswvlek_NvSTI4/edit';
 
   function setAppHeight() {
@@ -1029,12 +1031,12 @@
       '</div>' +
 
       '<div class="action-grid">' +
-        '<button class="action-card primary" onclick="switchPage(&quot;transaction&quot;)"><span class="action-icon">＋</span><span class="action-title">我要拿零用金</span><span class="action-sub">建立未結清暫借款</span></button>' +
-        '<button class="action-card" style="background:linear-gradient(135deg,#0f766e,#14b8a6);" onclick="switchPage(&quot;close&quot;)"><span class="action-icon">✓</span><span class="action-title">我要報帳 / 還找零</span><span class="action-sub">把款項結清，月底找得到</span></button>' +
-        '<button class="action-card success" onclick="switchPage(&quot;inventory&quot;)"><span class="action-icon">🔢</span><span class="action-title">盤點現金</span><span class="action-sub">硬幣、紙鈔快速填</span></button>' +
-        '<button class="action-card" style="background:linear-gradient(135deg,#9333ea,#c084fc);" onclick="switchPage(&quot;monthly&quot;)"><span class="action-icon">📊</span><span class="action-title">月底清算</span><span class="action-sub">檢查未結款、收據、差異</span></button>' +
-        '<button class="action-card database-card" onclick="openDatabase()"><span class="action-icon">📊</span><span class="action-title">開啟資料庫</span><span class="action-sub">查看 Google Sheet</span></button>' +
-        '<button class="action-card" style="background:linear-gradient(135deg,#7c3aed,#a78bfa);" onclick="switchPage(&quot;settings&quot;)"><span class="action-icon">⚙️</span><span class="action-title">原始設定</span><span class="action-sub">金額、鈔票硬幣</span></button>' +
+        '<button class="action-card primary" onclick="switchPage(&quot;transaction&quot;)"><span class="action-icon">＋</span><span class="action-title">我要拿零用金</span><span class="action-sub">建立待結清取款</span></button>' +
+        '<button class="action-card settle" onclick="switchPage(&quot;close&quot;)"><span class="action-icon">✓</span><span class="action-title">我要報帳 / 結清</span><span class="action-sub">填實際支出、找零與收據</span></button>' +
+        '<button class="action-card success" onclick="switchPage(&quot;inventory&quot;)"><span class="action-icon">▦</span><span class="action-title">盤點現金</span><span class="action-sub">硬幣、紙鈔快速填</span></button>' +
+        '<button class="action-card monthly" onclick="switchPage(&quot;monthly&quot;)"><span class="action-icon">□</span><span class="action-title">月底清算</span><span class="action-sub">檢查未結款、收據、差異</span></button>' +
+        '<button class="action-card database-card" onclick="openDatabase()"><span class="action-icon">≡</span><span class="action-title">開啟資料庫</span><span class="action-sub">查看 Google Sheet</span></button>' +
+        '<button class="action-card settings" onclick="switchPage(&quot;settings&quot;)"><span class="action-icon">⚙</span><span class="action-title">原始設定</span><span class="action-sub">金額、鈔票硬幣、人員</span></button>' +
       '</div>' +
 
       '<div class="summary-grid">' +
