@@ -339,6 +339,23 @@
     .record-amount-out { color: var(--red); background: #fff1f2; }
     .record-amount-in { color: var(--green); background: #ecfdf5; }
 
+    .record-item.is-child, .status-item.is-child {
+      margin-left: 16px;
+      padding-left: 14px;
+      border-left: 2px solid rgba(148,163,184,.6);
+      border-bottom-style: dashed;
+      background: rgba(148,163,184,.08);
+      border-radius: 10px;
+    }
+    .record-item.is-child .record-type { font-size: 19px; }
+    .record-item.is-child .record-note { font-size: 15px; }
+    .record-item.is-child .record-amount-out,
+    .record-item.is-child .record-amount-in { font-size: 19px; min-width: 92px; padding: 7px 8px; }
+    .status-item.is-child .status-title { font-size: 16px; }
+    .status-item.is-child .status-meta { font-size: 14px; }
+    .status-item.is-child .status-money { font-size: 18px; }
+    .child-link-icon { color: var(--muted); font-weight: 800; margin-right: 4px; }
+
     .status-list {
       display: grid;
       gap: 10px;
@@ -913,6 +930,34 @@
     return type === '取款' || type === '拿零用金';
   }
 
+  // 依 relatedId 把子紀錄（如找零歸還）緊接在父紀錄之後排序，
+  // 找不到父紀錄的孤兒子紀錄則退回當作獨立主紀錄顯示。
+  function groupByRelated(list) {
+    list = list || [];
+    var idSet = {};
+    list.forEach(function(r, i) { idSet[getRecordId(r, i)] = true; });
+
+    var childrenByParent = {};
+    list.forEach(function(r) {
+      var parentId = r.relatedId;
+      if (parentId && idSet[parentId]) {
+        (childrenByParent[parentId] = childrenByParent[parentId] || []).push(r);
+      }
+    });
+
+    var ordered = [];
+    list.forEach(function(r, i) {
+      var id = getRecordId(r, i);
+      var parentId = r.relatedId;
+      if (parentId && idSet[parentId]) return; // 已經會掛在父紀錄底下，這裡跳過
+      ordered.push({ record: r, isChild: false });
+      (childrenByParent[id] || []).forEach(function(child) {
+        ordered.push({ record: child, isChild: true });
+      });
+    });
+    return ordered;
+  }
+
   function todayText() {
     var d = new Date();
     return String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0');
@@ -1009,12 +1054,13 @@
     if (!recent.length) {
       recordsHtml = '<div class="empty-state">尚無記錄<small>可以先新增一筆收支，開始建立流水帳</small></div>';
     } else {
-      recent.forEach(function(r) {
+      groupByRelated(recent).forEach(function(entry) {
+        var r = entry.record;
         var isOut = r.type === '取款' || r.type === '實際支出';
         recordsHtml +=
-          '<div class="record-item">' +
+          '<div class="record-item' + (entry.isChild ? ' is-child' : '') + '">' +
             '<div>' +
-              '<div class="record-type">' + escapeHtml(r.type) + (r.note ? '｜' + escapeHtml(r.note) : '') + '</div>' +
+              '<div class="record-type">' + (entry.isChild ? '<span class="child-link-icon">↳</span>' : '') + escapeHtml(r.type) + (r.note ? '｜' + escapeHtml(r.note) : '') + '</div>' +
               '<div class="record-note">' + escapeHtml(r.date) + (r.handler ? '　' + escapeHtml(r.handler) : '') + '</div>' +
             '</div>' +
             '<div class="' + (isOut ? 'record-amount-out' : 'record-amount-in') + '">' + (isOut ? '－' : '＋') + money(r.amount) + '</div>' +
@@ -1065,17 +1111,18 @@
     }
 
     var html = '<div class="status-list">';
-    list.forEach(function(r, index) {
+    groupByRelated(list).forEach(function(entry, index) {
+      var r = entry.record;
       var id = getRecordId(r, index);
       html +=
-        '<div class="status-item">' +
+        '<div class="status-item' + (entry.isChild ? ' is-child' : '') + '">' +
           '<div>' +
-            '<div class="status-title">' + escapeHtml(getRecordTitle(r)) + '</div>' +
+            '<div class="status-title">' + (entry.isChild ? '<span class="child-link-icon">↳</span>' : '') + escapeHtml(getRecordTitle(r)) + '</div>' +
             '<div class="status-meta">' + escapeHtml(r.date || '') + (r.handler ? '　' + escapeHtml(r.handler) : '') + '　狀態：' + escapeHtml(r.status || '未結清') + '</div>' +
           '</div>' +
           '<div>' +
             '<div class="status-money red">' + money(getRecordAmount(r)) + '</div>' +
-            (options.withButton ? '<button class="mini-btn" onclick="startCloseFromHome(&quot;' + escapeHtml(id) + '&quot;)">報帳</button>' : '') +
+            (options.withButton && !entry.isChild ? '<button class="mini-btn" onclick="startCloseFromHome(&quot;' + escapeHtml(id) + '&quot;)">報帳</button>' : '') +
           '</div>' +
         '</div>';
     });
@@ -1497,11 +1544,12 @@
     }
 
     var html = '<div class="status-list">';
-    list.slice(0, 20).forEach(function(r) {
+    groupByRelated(list.slice(0, 20)).forEach(function(entry) {
+      var r = entry.record;
       html +=
-        '<div class="status-item">' +
+        '<div class="status-item' + (entry.isChild ? ' is-child' : '') + '">' +
           '<div>' +
-            '<div class="status-title">' + escapeHtml(getRecordTitle(r)) + '</div>' +
+            '<div class="status-title">' + (entry.isChild ? '<span class="child-link-icon">↳</span>' : '') + escapeHtml(getRecordTitle(r)) + '</div>' +
             '<div class="status-meta">' + escapeHtml(r.date || '') + (r.handler ? '　' + escapeHtml(r.handler) : '') + '　' + escapeHtml(r.status || r.receiptStatus || '') + '</div>' +
           '</div>' +
           '<div class="status-money">' + money(getRecordAmount(r)) + '</div>' +
