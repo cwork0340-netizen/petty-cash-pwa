@@ -647,8 +647,9 @@
 
         <div class="form-group">
           <label for="txHandler">經手人</label>
-          <input type="text" id="txHandler" list="peopleList" placeholder="選擇或輸入人員" />
-          <datalist id="peopleList"></datalist>
+          <div class="select-wrap">
+            <select id="txHandler"></select>
+          </div>
         </div>
       </div>
 
@@ -868,25 +869,18 @@
 
   function savePeopleList(list) {
     localStorage.setItem(PEOPLE_STORAGE_KEY, JSON.stringify(normalizePeople(list)));
-    renderPeopleDatalist();
+    renderPeopleSelect();
   }
 
-  function rememberPerson(name) {
-    name = String(name || '').trim();
-    if (!name || name === '未填經手人') return;
-    var list = getPeopleList();
-    if (list.indexOf(name) === -1) {
-      list.push(name);
-      savePeopleList(list);
-    }
-  }
-
-  function renderPeopleDatalist() {
-    var el = $('peopleList');
+  function renderPeopleSelect() {
+    var el = $('txHandler');
     if (!el) return;
-    el.innerHTML = getPeopleList().map(function(name) {
-      return '<option value="' + escapeHtml(name) + '"></option>';
+    var current = el.value;
+    var people = getPeopleList();
+    el.innerHTML = '<option value="">請選擇經手人</option>' + people.map(function(name) {
+      return '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>';
     }).join('');
+    if (current && people.indexOf(current) !== -1) el.value = current;
   }
 
   function escapeHtml(value) {
@@ -1152,7 +1146,7 @@
   }
 
   function initTransactionForm() {
-    renderPeopleDatalist();
+    renderPeopleSelect();
     if (!$('txDate').value) $('txDate').value = fullDateValue();
   }
 
@@ -1167,7 +1161,6 @@
     if (isNaN(amount) || amount <= 0) { showToast('請填寫正確金額'); return; }
     if (!note) note = '未填用途';
     if (!handler) handler = '未填經手人';
-    rememberPerson(handler);
 
     var btn = $('txSubmitBtn');
     btn.disabled = true;
@@ -1576,7 +1569,7 @@
   }
 
   function initSettingsForm() {
-    renderPeopleDatalist();
+    renderPeopleSelect();
     if ($('peopleSettings')) {
       $('peopleSettings').value = getPeopleList().join('\n');
     }
