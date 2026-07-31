@@ -926,6 +926,8 @@
   function isPendingRecord(record) {
     var status = String(record.status || record.closeStatus || '').trim();
     var type = String(record.type || '').trim();
+    // 找零歸還／收入／補入零用金是入帳性質，不是待報帳的借支，不該被算進未結清清單
+    if (type === '找零歸還' || type === '收入' || type === '補入零用金') return false;
     if (status && status !== '已結清' && status !== '已核銷') return true;
     return type === '取款' || type === '拿零用金';
   }
