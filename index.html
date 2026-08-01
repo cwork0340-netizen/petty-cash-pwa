@@ -845,7 +845,7 @@
   function $(id) { return document.getElementById(id); }
 
   var DEFAULT_PEOPLE = ['佳佳', '芯誼', 'Bing', 'Ivy', '秉哥', '黑貓', '詹姆士', 'Lalamove'];
-  var PEOPLE_STORAGE_KEY = 'pettyCashPeople';
+  var peopleListCache = DEFAULT_PEOPLE.slice();
 
   function normalizePeople(list) {
     var seen = {};
@@ -858,25 +858,29 @@
       });
   }
 
-  function getPeopleList() {
-    try {
-      var saved = JSON.parse(localStorage.getItem(PEOPLE_STORAGE_KEY) || '[]');
-      return normalizePeople(saved.length ? saved : DEFAULT_PEOPLE);
-    } catch (err) {
-      return DEFAULT_PEOPLE.slice();
-    }
-  }
-
-  function savePeopleList(list) {
-    localStorage.setItem(PEOPLE_STORAGE_KEY, JSON.stringify(normalizePeople(list)));
-    renderPeopleSelect();
+  // 常用人員存在 Google Sheet 的「設定」分頁（key = people），
+  // 所有裝置讀寫同一份，才不會各裝置各自一份導致同一人被拆成不同寫法。
+  function loadPeopleList() {
+    return api('getSettings')
+      .then(function(settings) {
+        var list = [];
+        try { list = JSON.parse((settings && settings.people) || '[]'); } catch (err) { list = []; }
+        peopleListCache = normalizePeople(list.length ? list : DEFAULT_PEOPLE);
+        renderPeopleSelect();
+        return peopleListCache;
+      })
+      .catch(function() {
+        peopleListCache = DEFAULT_PEOPLE.slice();
+        renderPeopleSelect();
+        return peopleListCache;
+      });
   }
 
   function renderPeopleSelect() {
     var el = $('txHandler');
     if (!el) return;
     var current = el.value;
-    var people = getPeopleList();
+    var people = peopleListCache;
     el.innerHTML = '<option value="">請選擇經手人</option>' + people.map(function(name) {
       return '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>';
     }).join('');
@@ -1147,6 +1151,7 @@
 
   function initTransactionForm() {
     renderPeopleSelect();
+    loadPeopleList();
     if (!$('txDate').value) $('txDate').value = fullDateValue();
   }
 
@@ -1570,9 +1575,6 @@
 
   function initSettingsForm() {
     renderPeopleSelect();
-    if ($('peopleSettings')) {
-      $('peopleSettings').value = getPeopleList().join('\n');
-    }
 
     var btn = $('settingsSubmitBtn');
     if (btn) {
@@ -1593,6 +1595,12 @@
         setValue('setBill200', settings.bill200 || 0);
         setValue('setBill500', settings.bill500 || 0);
         setValue('setBill1000', settings.bill1000 || 0);
+
+        var peopleRaw = [];
+        try { peopleRaw = JSON.parse(settings.people || '[]'); } catch (err) { peopleRaw = []; }
+        peopleListCache = normalizePeople(peopleRaw.length ? peopleRaw : DEFAULT_PEOPLE);
+        renderPeopleSelect();
+        if ($('peopleSettings')) $('peopleSettings').value = peopleListCache.join('\n');
 
         if (btn) {
           btn.disabled = false;
@@ -1616,9 +1624,17 @@
       showToast('請至少保留一位常用人員');
       return;
     }
-    savePeopleList(list);
-    el.value = getPeopleList().join('\n');
-    showToast('常用人員已儲存');
+
+    api('savePeopleSettings', { people: JSON.stringify(list) })
+      .then(function(result) {
+        peopleListCache = normalizePeople((result && result.people) || list);
+        renderPeopleSelect();
+        el.value = peopleListCache.join('\n');
+        showToast('常用人員已儲存');
+      })
+      .catch(function(err) {
+        showToast(err.message || '常用人員儲存失敗');
+      });
   }
 
   function submitSettings() {
