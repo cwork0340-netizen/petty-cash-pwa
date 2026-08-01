@@ -58,6 +58,7 @@ function doGet(e) {
       getBalance,
       getSettings,
       saveSettings: () => saveSettings(params),
+      savePeopleSettings: () => savePeopleSettings(params),
       addTransaction: () => addTransaction(params),
       getPendingWithdrawals,
       closeWithdrawal: () => closeWithdrawal(params),
@@ -231,6 +232,24 @@ function saveSettings(params) {
   });
 
   return { balance: getBalance(), newBalance: getBalance() };
+}
+
+function savePeopleSettings(params) {
+  const sheet = getOrCreateSheet(SHEETS.settings, SETTINGS_HEADERS);
+  const map = getHeaderMap(sheet);
+  const rows = rowsAsObjects(sheet);
+  const now = nowText();
+  const value = params.people || '[]';
+
+  const existing = rows.find(row => row.key === 'people');
+  if (existing) {
+    sheet.getRange(existing.row, map.value + 1).setValue(value);
+    sheet.getRange(existing.row, map.updatedAt + 1).setValue(now);
+  } else {
+    appendObject(sheet, SETTINGS_HEADERS, { key: 'people', value, updatedAt: now });
+  }
+
+  return { people: JSON.parse(value) };
 }
 
 function getInitialAmount() {
