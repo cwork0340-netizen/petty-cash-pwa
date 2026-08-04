@@ -630,7 +630,7 @@
             <select id="txType">
               <option value="取款">拿零用金（未結清）</option>
               <option value="實際支出">直接付款（已支出）</option>
-              <option value="收入">補入零用金</option>
+              <option value="補入零用金">補入零用金</option>
             </select>
           </div>
         </div>
@@ -694,6 +694,11 @@
           </div>
         </div>
 
+        <div class="form-group">
+          <label for="receiptUrl">收據連結 <span class="field-hint">選填，可稍後補</span></label>
+          <input type="url" id="receiptUrl" placeholder="Google Drive 或雲端收據連結" inputmode="url" />
+        </div>
+
         <div class="count-row total">
           <span class="count-row-label">結案檢查</span>
           <span class="count-row-value" id="closeDiffDisplay">請先選款項</span>
@@ -744,11 +749,23 @@
         <div class="count-row total"><span class="count-row-label">盤點差異</span><span class="count-row-value" id="diffDisplay">—</span></div>
       </div>
 
+      <div class="card">
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="inventoryHandler">盤點人 <span class="field-hint">必填</span></label>
+          <div class="select-wrap"><select id="inventoryHandler"></select></div>
+        </div>
+      </div>
+
       <div class="card" id="diffNoteGroup" style="display:none;">
         <div class="form-group" style="margin-bottom:0;">
           <label for="diffNote">差異原因 <span class="field-hint">必填</span></label>
           <textarea id="diffNote" placeholder="例如：找零給錯、收據還沒交回來"></textarea>
         </div>
+      </div>
+
+      <div class="card" id="inventoryCandidatesCard">
+        <div class="section-title-row"><div class="section-label">差異可能原因</div><div class="section-hint">系統自動比對</div></div>
+        <div id="inventoryCandidates"><div class="empty-state">讀取中...</div></div>
       </div>
 
       <button class="btn btn-success" id="invSubmitBtn" onclick="submitInventory()">送出盤點</button>
@@ -877,14 +894,16 @@
   }
 
   function renderPeopleSelect() {
-    var el = $('txHandler');
-    if (!el) return;
-    var current = el.value;
-    var people = peopleListCache;
-    el.innerHTML = '<option value="">請選擇經手人</option>' + people.map(function(name) {
-      return '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>';
-    }).join('');
-    if (current && people.indexOf(current) !== -1) el.value = current;
+    ['txHandler', 'inventoryHandler'].forEach(function(id) {
+      var el = $(id);
+      if (!el) return;
+      var current = el.value;
+      var people = peopleListCache;
+      el.innerHTML = '<option value="">請選擇經手人</option>' + people.map(function(name) {
+        return '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>';
+      }).join('');
+      if (current && people.indexOf(current) !== -1) el.value = current;
+    });
   }
 
   function escapeHtml(value) {
@@ -1023,13 +1042,21 @@
   }
 
   function calcRecentSummary(recent) {
-    var out = 0, income = 0;
+    var expense = 0, replenishment = 0, returned = 0, pending = 0;
     (recent || []).forEach(function(r) {
       var amount = Number(r.amount || 0);
-      if (r.type === '取款' || r.type === '實際支出') out += amount;
-      if (r.type === '找零歸還' || r.type === '收入') income += amount;
+      if (r.type === '實際支出') expense += amount;
+      if (r.type === '取款') {
+        if (r.status === '已結清' || r.status === '待補收據') {
+          expense += Number(r.actualExpense || 0);
+        } else {
+          pending += amount;
+        }
+      }
+      if (r.type === '補入零用金' || r.type === '收入') replenishment += amount;
+      if (r.type === '找零歸還') returned += amount;
     });
-    return { out: out, income: income, count: (recent || []).length };
+    return { expense: expense, replenishment: replenishment, returned: returned, pending: pending };
   }
 
   function loadHome() {
@@ -1045,6 +1072,8 @@
     data = data || {};
     var recent = data.recent || [];
     var summary = calcRecentSummary(recent);
+    var reconciliation = data.reconciliation || {};
+    var alerts = data.alerts || [];
 
     var badgeHtml = data.todayDone
       ? '<span class="badge badge-ok">✓ 今日已盤點</span>'
@@ -1086,9 +1115,15 @@
       '</div>' +
 
       '<div class="summary-grid">' +
-        '<div class="summary-card"><div class="summary-label">最近支出</div><div class="summary-value red">' + money(summary.out) + '</div></div>' +
-        '<div class="summary-card"><div class="summary-label">最近收入</div><div class="summary-value green">' + money(summary.income) + '</div></div>' +
-        '<div class="summary-card"><div class="summary-label">記錄筆數</div><div class="summary-value blue">' + summary.count + '</div></div>' +
+        '<div class="summary-card"><div class="summary-label">近期實際支出</div><div class="summary-value red">' + money(summary.expense) + '</div></div>' +
+        '<div class="summary-card"><div class="summary-label">補入零用金</div><div class="summary-value green">' + money(summary.replenishment) + '</div></div>' +
+        '<div class="summary-card"><div class="summary-label">找零歸還</div><div class="summary-value blue">' + money(summary.returned) + '</div></div>' +
+        '<div class="summary-card"><div class="summary-label">未結清預支</div><div class="summary-value red">' + money(summary.pending) + '</div></div>' +
+      '</div>' +
+
+      '<div class="card">' +
+        '<div class="section-title-row"><div class="section-label">需要追查</div><div class="section-hint">未結清 ' + Number(reconciliation.pendingCount || 0) + '・差異 ' + Number(reconciliation.openDifferenceCount || 0) + '</div></div>' +
+        renderTraceList(alerts, '目前沒有逾期預支或未解差異') +
       '</div>' +
 
       '<div class="card">' +
@@ -1127,6 +1162,21 @@
         '</div>';
     });
     return html + '</div>';
+  }
+
+  function renderTraceList(list, emptyText) {
+    if (!list || !list.length) {
+      return '<div class="empty-state">' + escapeHtml(emptyText || '目前沒有待查事項') + '</div>';
+    }
+    return '<div class="status-list">' + list.slice(0, 8).map(function(item) {
+      var age = Number(item.ageDays || 0);
+      var ageLabel = age ? '｜' + age + ' 天' : '';
+      return '<div class="status-item">' +
+        '<div><div class="status-title">' + escapeHtml(item.type || '待查事項') + '：' + escapeHtml(item.note || item.recordId || '') + '</div>' +
+        '<div class="status-meta">' + escapeHtml(item.date || '') + '｜' + escapeHtml(item.handler || '未指定') + ageLabel + '</div></div>' +
+        '<div class="status-money ' + (item.overdue ? 'red' : '') + '">' + money(Math.abs(Number(item.amount || 0))) + '</div>' +
+      '</div>';
+    }).join('') + '</div>';
   }
 
   function loadPendingWithdrawals() {
@@ -1285,12 +1335,13 @@
     var expense = parseFloat($('closeExpense').value);
     var returned = parseFloat($('closeReturn').value);
     var receiptStatus = $('receiptStatus').value;
+    var receiptUrl = $('receiptUrl').value.trim();
     var diffNote = $('closeDiffNote').value.trim();
     var diff = borrowed - (expense || 0) - (returned || 0);
 
     if (isNaN(expense) || expense < 0) { showToast('請填寫正確實際支出'); return; }
     if (isNaN(returned) || returned < 0) { showToast('請填寫正確找零金額，可填 0'); return; }
-    if (diff !== 0 && !diffNote) { showToast('金額不符時請填差異原因'); return; }
+    if (diff !== 0) { showToast('結清必須符合「原拿款＝實際支出＋找零」；短溢請在盤點建立差異單。'); return; }
 
     var btn = $('closeSubmitBtn');
     btn.disabled = true;
@@ -1308,11 +1359,12 @@
       actualExpense: expense,
       returnedAmount: returned,
       receiptStatus: receiptStatus,
+      receiptUrl: receiptUrl,
       diffAmount: diff,
       diffNote: diffNote,
       note: commonNote,
       handler: handler,
-      status: diff === 0 ? (receiptStatus === '待補' ? '待補收據' : '已結清') : '待查差異'
+      status: receiptStatus === '待補' ? '待補收據' : '已結清'
     };
 
     api('closeWithdrawal', closeParams)
@@ -1325,6 +1377,7 @@
         $('closeExpense').value = '';
         $('closeReturn').value = '';
         $('closeDiffNote').value = '';
+        $('receiptUrl').value = '';
         showToast(receiptStatus === '待補' ? '已記錄，收據待補' : '已記錄結清資料');
         loadHome();
         initCloseForm();
@@ -1341,6 +1394,8 @@
   var _pendingInventoryAmount = 0;
 
   function initInventoryForm() {
+    renderPeopleSelect();
+    loadPeopleList();
     var btn = $('invSubmitBtn');
     btn.disabled = true;
     btn.textContent = '讀取餘額中...';
@@ -1356,6 +1411,14 @@
       .catch(function() {
         _pendingInventoryAmount = 0;
         $('pendingInventoryTotal').textContent = '未連線';
+      });
+
+    api('getReconciliationData')
+      .then(function(data) {
+        $('inventoryCandidates').innerHTML = renderTraceList((data && data.candidates) || [], '沒有可供比對的未結款、待補收據或舊差異');
+      })
+      .catch(function() {
+        $('inventoryCandidates').innerHTML = '<div class="empty-state">無法讀取待查清單，請先確認資料連線</div>';
       });
 
     api('getBalance')
@@ -1431,11 +1494,13 @@
 
     var diff = actualTotal - _ledgerBalance;
     var diffNote = $('diffNote').value.trim();
+    var handler = $('inventoryHandler').value.trim();
 
     if (diff !== 0 && !diffNote) {
       showToast('有差異時請填寫差異原因');
       return;
     }
+    if (!handler) { showToast('請選擇盤點人'); return; }
 
     var btn = $('invSubmitBtn');
     btn.disabled = true;
@@ -1444,7 +1509,8 @@
     api('addInventory', Object.assign({}, vals, {
       date: todaySlashDate(),
       actualTotal: actualTotal,
-      diffNote: diffNote
+      diffNote: diffNote,
+      handler: handler
     })).then(function(result) {
       btn.disabled = false;
       btn.textContent = '送出盤點';
@@ -1476,22 +1542,25 @@
       safeApi('getBalance', 0),
       safeApi('getSettings', {}),
       loadPendingWithdrawals().catch(function() { return null; }),
-      safeApi('getAllTransactions', null)
+      safeApi('getAllTransactions', null),
+      safeApi('getMonthCloseStatus', null)
     ]).then(function(results) {
       var balance = Number(results[0] || 0);
       var settings = results[1] || {};
       var pending = results[2];
       var transactions = results[3] == null ? null : listFromResponse(results[3]);
-      renderMonthly(balance, settings, pending, transactions);
+      renderMonthly(balance, settings, pending, transactions, results[4]);
     }).catch(function(err) {
       $('monthlyContent').innerHTML = '<div class="card"><div class="empty-state">月結資料載入失敗<small>' + escapeHtml(err.message) + '</small></div></div>';
     });
   }
 
-  function renderMonthly(balance, settings, pending, transactions) {
+  function renderMonthly(balance, settings, pending, transactions, monthCloseStatus) {
     var pendingList = pending || [];
     var pendingTotal = pendingList.reduce(function(sum, r) { return sum + getRecordAmount(r); }, 0);
     var initialAmount = Number(settings.initialAmount || settings.originalAmount || 0);
+    var closeBlockers = (monthCloseStatus && monthCloseStatus.blockers) || [];
+    var canClose = monthCloseStatus && monthCloseStatus.canClose;
 
     var receiptPending = [];
     var diffPending = [];
@@ -1532,10 +1601,15 @@
         '<div class="summary-card"><div class="summary-label">待查差異</div><div class="summary-value red">' + (transactions ? diffPending.length : '-') + '</div></div>' +
       '</div>' +
 
+      '<div class="card"><div class="section-title-row"><div class="section-label">月結檢查</div><div class="section-hint">' + (canClose ? '可結案' : '尚不可結案') + '</div></div>' +
+      (canClose ? '<div class="empty-state">所有預支、收據與盤點差異均已處理</div>' : renderTraceList(closeBlockers.map(function(text) { return { type: '月結阻擋', note: text }; }), '無法取得月結檢查結果')) +
+      '</div>' +
+
       '<div class="card"><div class="section-title-row"><div class="section-label">1. 未結清款項</div><div class="section-hint">錢在誰那裡</div></div>' + pendingBlock + '</div>' +
       '<div class="card"><div class="section-title-row"><div class="section-label">2. 待補收據</div><div class="section-hint">月底必補</div></div>' + receiptBlock + '</div>' +
       '<div class="card"><div class="section-title-row"><div class="section-label">3. 盤點差異</div><div class="section-hint">待查 / 已調整</div></div>' + diffBlock + '</div>' +
-      '<button class="btn btn-secondary" onclick="openDatabase()">開啟資料庫核對明細</button>';
+      '<button class="btn btn-secondary" onclick="exportMonthlyCsv()">匯出月結 CSV</button>' +
+      '<button class="btn btn-secondary" style="margin-top:10px" onclick="openDatabase()">開啟資料庫核對明細</button>';
   }
 
   function renderSimpleAuditList(list, emptyText) {
@@ -1556,6 +1630,30 @@
         '</div>';
     });
     return html + '</div>';
+  }
+
+  function exportMonthlyCsv() {
+    Promise.all([safeApi('getAllTransactions', []), safeApi('getAllInventory', [])])
+      .then(function(results) {
+        var transactions = listFromResponse(results[0]);
+        var inventory = listFromResponse(results[1]);
+        var rows = [['類別', '日期', '單號', '動作 / 狀態', '金額', '經手人', '用途 / 原因', '收據狀態', '收據連結']];
+        transactions.forEach(function(row) {
+          rows.push(['現金流水', row.date, row.recordId, row.type + ' / ' + row.status, row.amount, row.handler, row.note, row.receiptStatus, row.receiptUrl || '']);
+        });
+        inventory.forEach(function(row) {
+          rows.push(['盤點', row.date, row.recordId, '帳面 ' + row.ledgerBalance + ' / 實點 ' + row.actualTotal + ' / ' + row.status, row.diffAmount, row.handler, row.diffNote, '', '']);
+        });
+        var csv = '\ufeff' + rows.map(function(row) {
+          return row.map(function(value) { return '"' + String(value == null ? '' : value).replace(/"/g, '""') + '"'; }).join(',');
+        }).join('\r\n');
+        var link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+        link.download = '零用金月結-' + fullDateValue() + '.csv';
+        link.click();
+        URL.revokeObjectURL(link.href);
+      })
+      .catch(function(err) { showToast(err.message || '月結報表匯出失敗'); });
   }
 
 
