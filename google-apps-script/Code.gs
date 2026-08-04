@@ -17,12 +17,15 @@ const TX_HEADERS = [
   'actualExpense',
   'returnedAmount',
   'receiptStatus',
+  'receiptUrl',
   'status',
   'diffAmount',
   'diffNote',
   'createdAt',
   'updatedAt',
-  'closedAt'
+  'closedAt',
+  'voidedAt',
+  'voidReason'
 ];
 
 const INVENTORY_HEADERS = [
@@ -41,6 +44,11 @@ const INVENTORY_HEADERS = [
   'diffAmount',
   'diffNote',
   'status',
+  'handler',
+  'candidateReasons',
+  'resolution',
+  'resolvedBy',
+  'resolvedAt',
   'createdAt'
 ];
 
@@ -60,13 +68,19 @@ function doGet(e) {
       saveSettings: () => saveSettings(params),
       savePeopleSettings: () => savePeopleSettings(params),
       addTransaction: () => addTransaction(params),
+      voidTransaction: () => voidTransaction(params),
       getPendingWithdrawals,
       closeWithdrawal: () => closeWithdrawal(params),
       getAllTransactions,
       getRecentTransactions,
       getExpenseList,
       getTodayInventoryStatus,
-      addInventory: () => addInventory(params)
+      addInventory: () => addInventory(params),
+      getAllInventory,
+      getReconciliationData,
+      resolveInventoryDifference: () => resolveInventoryDifference(params),
+      getAlerts,
+      getMonthCloseStatus
     };
 
     if (!routes[action]) throw new Error('Unknown action: ' + action);
@@ -259,7 +273,9 @@ function getInitialAmount() {
 
 function getAllTransactions() {
   const sheet = getOrCreateSheet(SHEETS.transactions, TX_HEADERS);
-  return rowsAsObjects(sheet).map(normalizeTransaction);
+  return rowsAsObjects(sheet)
+    .map(normalizeTransaction)
+    .filter(row => String(row.status || '').trim() !== '已作廢');
 }
 
 function normalizeTransaction(row) {
@@ -311,31 +327,45 @@ function getHomeData() {
     balance: getBalance(),
     lastUpdated: getLastUpdated(),
     recent: getRecentTransactions(),
-    todayDone: getTodayInventoryStatus().todayDone
+    todayDone: getTodayInventoryStatus().todayDone,
+    reconciliation: getReconciliationData(),
+    alerts: getAlerts()
   };
 }
 
 function addTransaction(params) {
   const sheet = getOrCreateSheet(SHEETS.transactions, TX_HEADERS);
   const type = params.type || '取款';
+  const amount = toNumber(params.amount);
+  const handler = String(params.handler || '').trim();
+  const note = String(params.note || '').trim();
+  if (['取款', '實際支出', '收入', '補入零用金', '找零歸還'].indexOf(type) === -1) {
+    throw new Error('不支援的現金動作');
+  }
+  if (amount <= 0) throw new Error('金額必須大於 0');
+  if (!handler) throw new Error('每筆現金紀錄都必須指定經手人');
+  if (!note) throw new Error('請填寫用途，才能在盤點時追查原因');
   const now = nowText();
   const record = {
     recordId: params.recordId || newId('TX'),
     date: normalizeDate(params.date),
     type,
-    amount: toNumber(params.amount),
-    note: params.note || '未填用途',
-    handler: params.handler || '未填經手人',
+    amount,
+    note,
+    handler,
     relatedId: params.relatedId || '',
     actualExpense: params.actualExpense || '',
     returnedAmount: params.returnedAmount || '',
     receiptStatus: params.receiptStatus || '',
+    receiptUrl: params.receiptUrl || '',
     status: params.status || (type === '取款' ? '未結清' : '已入帳'),
     diffAmount: params.diffAmount || '',
     diffNote: params.diffNote || '',
     createdAt: now,
     updatedAt: now,
-    closedAt: ''
+    closedAt: '',
+    voidedAt: '',
+    voidReason: ''
   };
 
   appendObject(sheet, TX_HEADERS, record);
@@ -380,15 +410,17 @@ function closeWithdrawal(params) {
     ? toNumber(params.diffAmount)
     : borrowed - actualExpense - returnedAmount;
   const receiptStatus = params.receiptStatus || '已收到';
-  const status = diffAmount !== 0
-    ? '待查差異'
-    : (receiptStatus === '待補' ? '待補收據' : '已結清');
+  if (diffAmount !== 0) {
+    throw new Error('結清必須符合「原拿款 = 實際支出 + 找零」。短溢請改由盤點差異單處理。');
+  }
+  const status = receiptStatus === '待補' ? '待補收據' : '已結清';
   const now = nowText();
 
   setObjectValues(sheet, target.row, {
     actualExpense,
     returnedAmount,
     receiptStatus,
+    receiptUrl: params.receiptUrl || '',
     status,
     diffAmount,
     diffNote: params.diffNote || '',
@@ -441,6 +473,12 @@ function addInventory(params) {
     ? toNumber(params.actualTotal)
     : calculateCashTotal(params);
   const diffAmount = actualTotal - ledgerBalance;
+  const handler = String(params.handler || '').trim();
+  if (!handler) throw new Error('盤點必須指定盤點人');
+  if (diffAmount !== 0 && !String(params.diffNote || '').trim()) {
+    throw new Error('短溢必須建立待查原因，不能直接調整帳面');
+  }
+  const reconciliation = getReconciliationData();
   const record = {
     recordId: params.recordId || newId('INV'),
     date: normalizeDate(params.date),
@@ -457,11 +495,115 @@ function addInventory(params) {
     diffAmount,
     diffNote: params.diffNote || '',
     status: diffAmount === 0 ? '相符' : '待查差異',
+    handler,
+    candidateReasons: JSON.stringify(reconciliation.candidates),
+    resolution: '',
+    resolvedBy: '',
+    resolvedAt: '',
     createdAt: nowText()
   };
 
   appendObject(sheet, INVENTORY_HEADERS, record);
   return { recordId: record.recordId, newBalance: ledgerBalance, diffAmount };
+}
+
+function getAllInventory() {
+  const sheet = getOrCreateSheet(SHEETS.inventory, INVENTORY_HEADERS);
+  return rowsAsObjects(sheet).map(row => Object.assign({}, row, {
+    date: normalizeDate(row.date),
+    ledgerBalance: toNumber(row.ledgerBalance),
+    actualTotal: toNumber(row.actualTotal),
+    diffAmount: toNumber(row.diffAmount)
+  }));
+}
+
+function voidTransaction(params) {
+  const sheet = getOrCreateSheet(SHEETS.transactions, TX_HEADERS);
+  const target = findTransactionRow(params.recordId || params.id || params.row);
+  const reason = String(params.reason || '').trim();
+  const operator = String(params.operator || '').trim();
+  if (!target) throw new Error('找不到要作廢的紀錄');
+  if (!reason || !operator) throw new Error('作廢必須留下原因與操作人');
+  if (String(target.status || '').trim() === '已結清') {
+    throw new Error('已結清預支不可直接作廢，請以沖回紀錄處理');
+  }
+  setObjectValues(sheet, target.row, {
+    status: '已作廢', voidedAt: nowText(), voidReason: reason,
+    updatedAt: nowText(), diffNote: (target.diffNote ? target.diffNote + '｜' : '') + '作廢：' + reason + '（' + operator + '）'
+  });
+  return { recordId: target.recordId, status: '已作廢', newBalance: getBalance() };
+}
+
+function getOpenInventoryDifferences() {
+  const sheet = getOrCreateSheet(SHEETS.inventory, INVENTORY_HEADERS);
+  return rowsAsObjects(sheet)
+    .map(row => Object.assign({}, row, {
+      diffAmount: toNumber(row.diffAmount),
+      status: String(row.status || '').trim()
+    }))
+    .filter(row => row.diffAmount !== 0 && row.status !== '已解決');
+}
+
+function getReconciliationData() {
+  const transactions = getAllTransactions();
+  const pending = getPendingWithdrawals();
+  const receiptPending = transactions.filter(row => String(row.receiptStatus || '').trim() === '待補');
+  const openDifferences = getOpenInventoryDifferences();
+  const candidates = [];
+
+  pending.forEach(row => candidates.push({
+    type: '未結清預支', recordId: row.recordId, handler: row.handler,
+    amount: toNumber(row.amount), date: row.date, note: row.note
+  }));
+  receiptPending.forEach(row => candidates.push({
+    type: '待補收據', recordId: row.recordId, handler: row.handler,
+    amount: toNumber(row.actualExpense || row.amount), date: row.date, note: row.note
+  }));
+  openDifferences.forEach(row => candidates.push({
+    type: '前次未解盤點差異', recordId: row.recordId, handler: row.handler,
+    amount: row.diffAmount, date: normalizeDate(row.date), note: row.diffNote
+  }));
+
+  return {
+    ledgerBalance: getBalance(),
+    pendingAmount: pending.reduce((sum, row) => sum + toNumber(row.amount), 0),
+    pendingCount: pending.length,
+    receiptPendingCount: receiptPending.length,
+    openDifferenceCount: openDifferences.length,
+    candidates
+  };
+}
+
+function getAlerts() {
+  const today = new Date();
+  return getReconciliationData().candidates.map(item => {
+    const date = new Date(String(item.date || '').replace(/\//g, '-'));
+    const ageDays = isNaN(date.getTime()) ? 0 : Math.floor((today - date) / 86400000);
+    return Object.assign({}, item, { ageDays, overdue: ageDays >= 7 });
+  }).filter(item => item.overdue || item.type === '前次未解盤點差異');
+}
+
+function resolveInventoryDifference(params) {
+  const sheet = getOrCreateSheet(SHEETS.inventory, INVENTORY_HEADERS);
+  const rows = rowsAsObjects(sheet);
+  const target = rows.find(row => String(row.recordId || '') === String(params.recordId || ''));
+  const resolution = String(params.resolution || '').trim();
+  const resolvedBy = String(params.resolvedBy || '').trim();
+  if (!target) throw new Error('找不到要處理的差異單');
+  if (!resolution || !resolvedBy) throw new Error('請填寫差異處理方式與確認人');
+  setObjectValues(sheet, target.row, {
+    status: '已解決', resolution, resolvedBy, resolvedAt: nowText()
+  });
+  return { recordId: target.recordId, status: '已解決' };
+}
+
+function getMonthCloseStatus() {
+  const reconciliation = getReconciliationData();
+  const blockers = [];
+  if (reconciliation.pendingCount) blockers.push('尚有 ' + reconciliation.pendingCount + ' 筆未結清預支');
+  if (reconciliation.receiptPendingCount) blockers.push('尚有 ' + reconciliation.receiptPendingCount + ' 筆待補收據');
+  if (reconciliation.openDifferenceCount) blockers.push('尚有 ' + reconciliation.openDifferenceCount + ' 筆未解盤點差異');
+  return { canClose: blockers.length === 0, blockers, reconciliation };
 }
 
 function calculateCashTotal(params) {
