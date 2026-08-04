@@ -111,3 +111,9 @@ test('首頁摘要把實支、補入、找零與未結清預支分開顯示', ()
   assert.match(frontend, /未結清預支/);
   assert.doesNotMatch(frontend, /最近收入/);
 });
+
+test('代理層相容 Apps Script 的 result 回傳格式', () => {
+  const proxy = fs.readFileSync('api/gas.js', 'utf8');
+  assert.match(proxy, /hasOwnProperty\.call\(payload, 'result'\)/);
+  assert.match(proxy, /payload = \{ success: true, data: payload\.result \}/);
+});

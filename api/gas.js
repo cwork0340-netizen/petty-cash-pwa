@@ -15,9 +15,21 @@ export default async function handler(request, response) {
     });
 
     const text = await gasResponse.text();
+    let payload;
+    try {
+      payload = JSON.parse(text);
+    } catch (error) {
+      throw new Error('Apps Script 回傳非 JSON 資料');
+    }
+
+    // 舊版 Apps Script 回傳 { success, data }；新版 API 回傳 { result }。
+    // 在代理層統一格式，避免前端因部署版本不同而無法載入。
+    if (payload && Object.prototype.hasOwnProperty.call(payload, 'result')) {
+      payload = { success: true, data: payload.result };
+    }
     response.setHeader('Content-Type', 'application/json; charset=utf-8');
     response.setHeader('Cache-Control', 'no-store');
-    response.status(200).send(text);
+    response.status(gasResponse.ok ? 200 : gasResponse.status).json(payload);
   } catch (error) {
     response.status(500).json({
       success: false,
