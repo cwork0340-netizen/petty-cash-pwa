@@ -67,6 +67,9 @@
       font-weight: 1000;
       box-shadow: 0 4px 18px rgba(23,37,84,.18);
     }
+    .company-switch { position: absolute; right: 10px; display: flex; gap: 4px; }
+    .company-switch button { border: 0; border-radius: 999px; padding: 5px 8px; background: rgba(255,255,255,.2); color: #fff; font-size: 12px; font-weight: 900; }
+    .company-switch button.active { background: #fff; color: var(--blue-dark); }
 
     .content {
       min-height: 0;
@@ -603,7 +606,12 @@
 
 <body>
 <div id="app">
-  <div class="top-bar" id="topBarTitle">零用金管理</div>
+  <div class="top-bar" id="topBarTitle">零用金管理
+    <div class="company-switch" aria-label="公司切換">
+      <button type="button" id="companyTwbio" onclick="switchCompany('twbio')">全瑩</button>
+      <button type="button" id="companyChangying" onclick="switchCompany('changying')">長瑩</button>
+    </div>
+  </div>
 
   <main class="content" id="appContent">
     <section class="page active" id="page-home">
@@ -851,6 +859,8 @@
 <script>
   const API_URL = '/api/gas';
   const DATABASE_URL = 'https://docs.google.com/spreadsheets/d/1WjDwixtAbU7rywz-E83z3Bhflkhz4Iswvlek_NvSTI4/edit';
+  var activeCompany = localStorage.getItem('pettyCashCompany') || 'twbio';
+  var activePage = 'home';
 
   function setAppHeight() {
     document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px');
@@ -1002,7 +1012,7 @@
 
   function api(action, params) {
     params = params || {};
-    var query = new URLSearchParams(Object.assign({}, params, { action: action }));
+    var query = new URLSearchParams(Object.assign({ company: activeCompany }, params, { action: action }));
 
     return fetch(API_URL + '?' + query.toString(), {
       cache: 'no-store'
@@ -1019,6 +1029,7 @@
   }
 
   function switchPage(page) {
+    activePage = page;
     document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
     document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
     $('page-' + page).classList.add('active');
@@ -1039,6 +1050,21 @@
     if (page === 'inventory') initInventoryForm();
     if (page === 'settings') initSettingsForm();
     if (page === 'monthly') loadMonthly();
+  }
+
+  function updateCompanySwitch() {
+    $('companyTwbio').classList.toggle('active', activeCompany === 'twbio');
+    $('companyChangying').classList.toggle('active', activeCompany === 'changying');
+  }
+
+  function switchCompany(company) {
+    if (company !== 'twbio' && company !== 'changying') return;
+    activeCompany = company;
+    localStorage.setItem('pettyCashCompany', company);
+    updateCompanySwitch();
+    showToast(company === 'twbio' ? '已切換至全瑩' : '已切換至長瑩');
+    switchPage(activePage);
+    if (activePage === 'home') loadHome();
   }
 
   function calcRecentSummary(recent) {
@@ -1777,7 +1803,10 @@
   }
 
 
-  window.addEventListener('load', loadHome);
+  window.addEventListener('load', function() {
+    updateCompanySwitch();
+    loadHome();
+  });
 
   // 先停用舊 Service Worker，避免手機一直吃到舊版快取。
   if ('serviceWorker' in navigator) {

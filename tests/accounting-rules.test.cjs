@@ -117,3 +117,11 @@ test('代理層相容 Apps Script 的 result 回傳格式', () => {
   assert.match(proxy, /hasOwnProperty\.call\(payload, 'result'\)/);
   assert.match(proxy, /payload = \{ success: true, data: payload\.result \}/);
 });
+
+test('公司切換會帶入所有 API 請求並保存選擇', () => {
+  const frontend = fs.readFileSync('index.html', 'utf8');
+  assert.match(frontend, /switchCompany\('twbio'\)/);
+  assert.match(frontend, /switchCompany\('changying'\)/);
+  assert.match(frontend, /company: activeCompany/);
+  assert.match(frontend, /localStorage\.setItem\('pettyCashCompany', company\)/);
+});
